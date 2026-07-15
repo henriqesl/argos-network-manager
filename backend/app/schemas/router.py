@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from ipaddress import ip_address
 
 from pydantic import (
     BaseModel,
@@ -8,6 +7,12 @@ from pydantic import (
     Field,
     SecretStr,
     field_validator,
+)
+
+from app.core.network_policy import (
+    normalize_management_ip,
+    normalize_optional_ip,
+    validate_router_api_port,
 )
 
 
@@ -29,12 +34,17 @@ class RouterCreate(BaseModel):
         examples=["Matriz"],
     )
 
-    ip: str = Field(
-        examples=["192.168.88.1"],
+    management_ip: str = Field(
+        examples=["10.200.0.21"],
+    )
+
+    public_ip: str | None = Field(
+        default=None,
+        examples=["203.0.113.10"],
     )
 
     api_port: int = Field(
-        default=8728,
+        default=8729,
         ge=1,
         le=65535,
     )
@@ -46,8 +56,6 @@ class RouterCreate(BaseModel):
     )
 
     password: SecretStr
-
-    use_ssl: bool = False
 
     @field_validator("name", "username")
     @classmethod
@@ -61,19 +69,29 @@ class RouterCreate(BaseModel):
 
         return normalized_value
 
-    @field_validator("ip")
+    @field_validator("management_ip")
     @classmethod
-    def validate_ip_address(cls, value: str) -> str:
-        """Validate and normalize an IPv4 or IPv6 address."""
+    def validate_management_ip(cls, value: str) -> str:
+        """Validate the router WireGuard management address."""
 
-        normalized_value = value.strip()
+        return normalize_management_ip(value)
 
-        try:
-            return str(ip_address(normalized_value))
-        except ValueError as exc:
-            raise ValueError(
-                "A valid IPv4 or IPv6 address is required."
-            ) from exc
+    @field_validator("public_ip")
+    @classmethod
+    def validate_public_ip(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """Validate the optional public inventory address."""
+
+        return normalize_optional_ip(value)
+
+    @field_validator("api_port")
+    @classmethod
+    def validate_api_port(cls, value: int) -> int:
+        """Ensure the API port is allowed by policy."""
+
+        return validate_router_api_port(value)
 
 
 class RouterResponse(BaseModel):
@@ -85,7 +103,8 @@ class RouterResponse(BaseModel):
 
     id: int
     name: str
-    ip: str
+    management_ip: str
+    public_ip: str | None
     api_port: int
     use_ssl: bool
     is_active: bool

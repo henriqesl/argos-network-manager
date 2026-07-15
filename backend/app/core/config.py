@@ -23,6 +23,14 @@ class Settings(BaseSettings):
         "http://localhost:5173",
     ]
 
+    management_networks: list[str] = [
+        "10.200.0.0/16",
+    ]
+
+    allowed_router_api_ports: list[int] = [
+        8729,
+    ]
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
