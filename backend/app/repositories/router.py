@@ -36,7 +36,47 @@ class RouterRepository:
         """Return the total number of registered routers."""
 
         statement = select(func.count()).select_from(Router)
-
         result = await self._session.scalar(statement)
 
         return result or 0
+
+    async def get_by_management_ip(
+        self,
+        management_ip: str,
+    ) -> Router | None:
+        """Return a router by its management IP."""
+
+        statement = select(Router).where(
+            Router.management_ip == management_ip
+        )
+
+        return await self._session.scalar(statement)
+
+    async def create_router(
+        self,
+        *,
+        name: str,
+        management_ip: str,
+        public_ip: str | None,
+        api_port: int,
+        username: str,
+        password_ciphertext: str,
+    ) -> Router:
+        """Create a router without committing the transaction."""
+
+        router = Router(
+            name=name,
+            management_ip=management_ip,
+            public_ip=public_ip,
+            api_port=api_port,
+            username=username,
+            password_ciphertext=password_ciphertext,
+            use_ssl=True,
+            is_active=True,
+            status="unknown",
+        )
+
+        self._session.add(router)
+        await self._session.flush()
+
+        return router
