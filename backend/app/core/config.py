@@ -20,6 +20,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+aiosqlite:///./argos.db"
 
+    routeros_ca_file: str = "certs/routeros-ca.pem"
+    routeros_socket_timeout_seconds: float = 5.0
+
     cors_origins: list[str] = [
         "http://localhost:5173",
     ]

@@ -21,6 +21,12 @@ from app.schemas.router import (
     RouterListResponse,
     RouterResponse,
 )
+from app.services.routeros import (
+    RouterOSConnectionError,
+    RouterOSDataError,
+    RouterOSTLSConfigurationError,
+    collect_router_snapshot,
+)
 
 
 router = APIRouter(
@@ -82,7 +88,7 @@ async def create_router(
         Depends(get_credential_cipher),
     ],
 ) -> RouterResponse:
-    """Register a new router with encrypted credentials."""
+    """Validate and register a router with encrypted credentials."""
 
     repository = RouterRepository(session)
 
@@ -99,8 +105,36 @@ async def create_router(
             ),
         )
 
+    plaintext_password = payload.password.get_secret_value()
+
+    try:
+        router_snapshot = await collect_router_snapshot(
+            management_ip=payload.management_ip,
+            api_port=payload.api_port,
+            username=payload.username,
+            password=plaintext_password,
+        )
+
+    except RouterOSTLSConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "RouterOS TLS trust is not configured "
+                "on the ARGOS server."
+            ),
+        ) from exc
+
+    except (RouterOSConnectionError, RouterOSDataError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "ARGOS could not establish a trusted "
+                "RouterOS API connection."
+            ),
+        ) from exc
+
     password_ciphertext = credential_cipher.encrypt(
-        payload.password.get_secret_value()
+        plaintext_password
     )
 
     try:
@@ -111,6 +145,15 @@ async def create_router(
             api_port=payload.api_port,
             username=payload.username,
             password_ciphertext=password_ciphertext,
+            model=router_snapshot.model,
+            identity=router_snapshot.identity,
+            routeros_version=router_snapshot.routeros_version,
+            cpu_usage_percent=router_snapshot.cpu_usage_percent,
+            memory_usage_percent=(
+                router_snapshot.memory_usage_percent
+            ),
+            uptime_seconds=router_snapshot.uptime_seconds,
+            checked_at=router_snapshot.checked_at,
         )
 
         await session.commit()
