@@ -52,6 +52,18 @@ class RouterRepository:
         )
 
         return await self._session.scalar(statement)
+    
+    async def get_by_id(
+        self,
+        router_id: int,
+    ) -> Router | None:
+        """Return a router by its database ID."""
+
+        statement = select(Router).where(
+            Router.id == router_id
+        )
+
+        return await self._session.scalar(statement)
 
     async def create_router(
     self,

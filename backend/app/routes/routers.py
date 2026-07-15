@@ -72,6 +72,32 @@ async def list_routers(
     )
 
 
+@router.get(
+    "/{router_id}",
+    response_model=RouterResponse,
+)
+async def get_router(
+    router_id: int,
+    session: Annotated[
+        AsyncSession,
+        Depends(get_database_session),
+    ],
+) -> RouterResponse:
+    """Return the details of a registered router."""
+
+    repository = RouterRepository(session)
+
+    router_record = await repository.get_by_id(router_id)
+
+    if router_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Router not found.",
+        )
+
+    return RouterResponse.model_validate(router_record)
+
+
 @router.post(
     "",
     response_model=RouterResponse,
