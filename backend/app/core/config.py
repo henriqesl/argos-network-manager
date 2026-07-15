@@ -3,6 +3,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pydantic import SecretStr
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BACKEND_DIR / ".env"
@@ -37,6 +38,8 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    credential_encryption_key: SecretStr
 
 
 @lru_cache

@@ -11,10 +11,14 @@ from app.db.database import (
     close_database_connection,
 )
 
+from app.core.credential_cipher import get_credential_cipher
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Manage application startup and shutdown resources."""
+
+    get_credential_cipher()
 
     yield
 
