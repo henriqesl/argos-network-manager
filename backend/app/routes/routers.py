@@ -20,6 +20,7 @@ from app.schemas.router import (
     RouterCreate,
     RouterListResponse,
     RouterResponse,
+    RouterUpdate,
 )
 from app.services.routeros import (
     RouterOSConnectionError,
@@ -197,3 +198,91 @@ async def create_router(
         ) from exc
 
     return RouterResponse.model_validate(router_record)
+
+
+@router.patch(
+    "/{router_id}",
+    response_model=RouterResponse,
+)
+async def update_router(
+    router_id: int,
+    payload: RouterUpdate,
+    session: Annotated[
+        AsyncSession,
+        Depends(get_database_session),
+    ],
+) -> RouterResponse:
+    """Update safe router properties."""
+
+    repository = RouterRepository(session)
+
+    router_record = await repository.get_by_id(router_id)
+
+    if router_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Router not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields were provided for update.",
+        )
+
+    if "is_active" in updates:
+        if updates["is_active"] is False:
+            updates["status"] = "disabled"
+            updates["last_error"] = None
+
+        elif router_record.is_active is False:
+            updates["status"] = "unknown"
+            updates["last_error"] = None
+
+    router_record = await repository.update_router(
+        router_record,
+        updates,
+    )
+
+    await session.commit()
+    await session.refresh(router_record)
+
+    return RouterResponse.model_validate(router_record)
+
+
+@router.delete(
+    "/{router_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def deactivate_router(
+    router_id: int,
+    session: Annotated[
+        AsyncSession,
+        Depends(get_database_session),
+    ],
+) -> None:
+    """Deactivate a router without deleting its database record."""
+
+    repository = RouterRepository(session)
+
+    router_record = await repository.get_by_id(router_id)
+
+    if router_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Router not found.",
+        )
+
+    if router_record.is_active:
+        await repository.update_router(
+            router_record,
+            {
+                "is_active": False,
+                "status": "disabled",
+                "last_error": None,
+            },
+        )
+
+        await session.commit()
