@@ -109,3 +109,17 @@ class RouterRepository:
         await self._session.flush()
 
         return router
+    
+    async def update_router(
+        self,
+        router: Router,
+        updates: dict[str, object],
+    ) -> Router:
+        """Apply validated changes without committing the transaction."""
+
+        for field_name, field_value in updates.items():
+            setattr(router, field_name, field_value)
+
+        await self._session.flush()
+
+        return router

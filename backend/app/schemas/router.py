@@ -23,6 +23,7 @@ class RouterStatus(str, Enum):
     ONLINE = "online"
     OFFLINE = "offline"
     ERROR = "error"
+    DISABLED = "disabled"
 
 
 class RouterCreate(BaseModel):
@@ -92,7 +93,64 @@ class RouterCreate(BaseModel):
         """Ensure the API port is allowed by policy."""
 
         return validate_router_api_port(value)
+    
+class RouterUpdate(BaseModel):
+    """Fields that can be safely updated without reconnecting."""
 
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+
+    public_ip: str | None = None
+
+    is_active: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_optional_name(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """Normalize a provided router name."""
+
+        if value is None:
+            raise ValueError("Name cannot be null.")
+
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            raise ValueError("Name cannot be empty.")
+
+        return normalized_value
+
+    @field_validator("public_ip")
+    @classmethod
+    def validate_optional_public_ip(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """Validate or clear the public inventory IP."""
+
+        return normalize_optional_ip(value)
+
+    @field_validator("is_active")
+    @classmethod
+    def validate_active_state(
+        cls,
+        value: bool | None,
+    ) -> bool:
+        """Reject explicit null values for the active state."""
+
+        if value is None:
+            raise ValueError("Active state cannot be null.")
+
+        return value
 
 class RouterResponse(BaseModel):
     """Public representation of a registered router."""
