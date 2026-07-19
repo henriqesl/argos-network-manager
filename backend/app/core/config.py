@@ -56,6 +56,9 @@ class Settings(BaseSettings):
         le=3600,
     )
 
+    polling_enabled: bool = True
+    log_level: str = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:
