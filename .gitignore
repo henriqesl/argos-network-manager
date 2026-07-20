@@ -38,3 +38,8 @@ Thumbs.db
 # Environment-specific certificates
 backend/certs/*
 !backend/certs/.gitkeep
+
+backups/
+*.db
+*.db-shm
+*.db-wal
