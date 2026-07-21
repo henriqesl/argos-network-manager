@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Float,
+    Index,
     Integer,
     String,
     Text,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     func,
     true,
 )
+
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -21,6 +23,15 @@ class Router(Base):
     """Represent a MikroTik router managed by ARGOS."""
 
     __tablename__ = "routers"
+
+    __table_args__ = (
+        Index(
+            "ix_routers_poll_due",
+            "is_active",
+            "next_poll_at",
+            "poll_lease_until",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -126,6 +137,48 @@ class Router(Base):
 
     last_error: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True,
+    )
+
+    next_poll_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    poll_lease_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    poll_lease_owner: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    last_poll_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_poll_finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    consecutive_failures: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    last_error_code: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    poll_duration_ms: Mapped[int | None] = mapped_column(
+        Integer,
         nullable=True,
     )
 
