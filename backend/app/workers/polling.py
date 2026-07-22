@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.core.config import settings
+
 from app.services.polling import (
     PollingCycleSummary,
-    poll_all_routers_once,
+    poll_due_routers_once,
 )
 
 
@@ -82,21 +83,22 @@ class PollingWorker:
             self.state.last_started_at = datetime.now(timezone.utc)
 
             try:
-                summary = await poll_all_routers_once()
+                summary = await poll_due_routers_once()
 
                 self.state.last_summary = summary
                 self.state.last_error = None
 
-                logger.info(
-                    (
-                        "Router polling completed: "
-                        "total=%s online=%s offline=%s errors=%s"
-                    ),
-                    summary.total,
-                    summary.online,
-                    summary.offline,
-                    summary.errors,
-                )
+                if summary.total > 0:
+                    logger.info(
+                        (
+                            "Router polling completed: "
+                            "total=%s online=%s offline=%s errors=%s"
+                        ),
+                        summary.total,
+                        summary.online,
+                        summary.offline,
+                        summary.errors,
+                    )
 
                 return summary
 
@@ -128,8 +130,8 @@ class PollingWorker:
         self.state.is_running = True
 
         logger.info(
-            "ARGOS polling worker started with interval of %s seconds.",
-            settings.poll_interval_seconds,
+            "ARGOS polling scheduler started with a %.1f second tick.",
+            settings.poll_scheduler_tick_seconds,
         )
 
         try:
@@ -156,7 +158,7 @@ class PollingWorker:
                 try:
                     await asyncio.wait_for(
                         self._stop_event.wait(),
-                        timeout=settings.poll_interval_seconds,
+                        timeout=settings.poll_scheduler_tick_seconds,
                     )
 
                 except TimeoutError:
