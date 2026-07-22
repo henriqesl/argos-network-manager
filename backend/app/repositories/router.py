@@ -1,9 +1,9 @@
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.router import Router
-
-from datetime import datetime
 
 class RouterRepository:
     """Handle database operations related to routers."""
@@ -135,4 +135,54 @@ class RouterRepository:
 
         result = await self._session.scalars(statement)
 
+        return list(result.all())
+    
+
+    async def list_unscheduled_active_routers(
+        self,
+    ) -> list[Router]:
+        """Return active routers without an initial polling schedule."""
+
+        statement = (
+            select(Router)
+            .where(
+                Router.is_active.is_(True),
+                Router.next_poll_at.is_(None),
+            )
+            .order_by(Router.id.asc())
+        )
+
+        result = await self._session.scalars(statement)
+
+        return list(result.all())
+
+
+    async def list_due_routers(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> list[Router]:
+        """Return routers ready for polling and without an active lease."""
+
+        statement = (
+            select(Router)
+            .where(
+                Router.is_active.is_(True),
+                Router.next_poll_at.is_not(None),
+                Router.next_poll_at <= now,
+                or_(
+                    Router.poll_lease_until.is_(None),
+                    Router.poll_lease_until <= now,
+                ),
+            )
+            .order_by(
+                Router.next_poll_at.asc(),
+                Router.id.asc(),
+            )
+            .limit(limit)
+        )
+
+        result = await self._session.scalars(statement)
+        
         return list(result.all())
